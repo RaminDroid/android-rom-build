@@ -1,36 +1,58 @@
-name: Build LineageOS A30 Minimal
+name: Build Kernel for Samsung A30
 
 on:
   workflow_dispatch:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
 
     steps:
-    - uses: actions/checkout@v3
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-    - name: Install repo
-      run: |
-        curl https://storage.googleapis.com/git-repo-downloads/repo > repo
-        chmod +x repo
-        sudo mv repo /usr/local/bin/
+      - name: Install Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            bc bison build-essential curl flex git gnupg gperf imagemagick \
+            lib32ncurses5-dev lib32z1-dev libc6-dev-i386 libgl1-mesa-dev \
+            liblz4-tool libncurses5-dev libssl-dev lzop pngcrush rsync \
+            schedtool squashfs-tools xsltproc zip zlib1g-dev ccache wget
 
-    - name: Initialize and sync repo
-      run: |
-        repo init -u https://github.com/LineageOS/android.git -b lineage-20.0
-        repo sync -c -j4 --force-sync
+      - name: Clone Kernel Source
+        run: |
+          git clone --depth=1 https://github.com/EurekaDevelopment/Eureka-Kernel-Exynos7885 kernel
+          cd kernel
 
-    - name: Clone trees
-      run: |
-        git clone https://github.com/crazo7924/device_samsung_a30 device/samsung/a30
-        git clone https://github.com/EurekaDevelopment/Eureka-Kernel-Exynos7885 kernel/samsung/a30
-        git clone https://github.com/LineageOS/android_vendor_samsung_a30 vendor/samsung/a30
+      - name: Download Clang Toolchain
+        run: |
+          mkdir clang && cd clang
+          wget https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/master/clang-r416183b.tar.gz
+          tar -xf clang-r416183b.tar.gz
+          cd ..
 
-    - name: Setup build env
-      run: |
-        source build/envsetup.sh
-        lunch lineage_a30-userdebug
+      - name: Setup Build Environment
+        run: |
+          cd kernel
+          export ARCH=arm64
+          export SUBARCH=arm64
+          export CLANG_PATH=$GITHUB_WORKSPACE/clang
+          export PATH=$CLANG_PATH/bin:$PATH
+          export CROSS_COMPILE=aarch64-linux-android-
+          export CROSS_COMPILE_ARM32=arm-linux-androideabi-
+          make O=out a30_defconfig
 
-    - name: Build ROM
-      run: mka bacon -j4
+      - name: Build Kernel
+        run: |
+          cd kernel
+          make -j$(nproc --all) O=out \
+            CC=clang \
+            CROSS_COMPILE=aarch64-linux-android- \
+            CROSS_COMPILE_ARM32=arm-linux-androideabi-
+
+      - name: Upload Kernel Image
+        uses: actions/upload-artifact@v4
+        with:
+          name: a30-kernel
+          path: kernel/out/arch/arm64/boot/Image.gz-dtb
