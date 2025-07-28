@@ -1,4 +1,5 @@
-name: Build ROM with Trees
+
+name: Build LineageOS for Samsung A30
 
 on:
   workflow_dispatch:
@@ -6,15 +7,24 @@ on:
 jobs:
   build:
     runs-on: ubuntu-22.04
+    env:
+      USE_CCACHE: 1
+      CCACHE_DIR: ${{ github.workspace }}/ccache
 
     steps:
-    - name: Checkout main repo
+    - name: Checkout
       uses: actions/checkout@v3
 
-    - name: Install dependencies
+    - name: Setup Java 11
+      uses: actions/setup-java@v3
+      with:
+        distribution: temurin
+        java-version: 11
+
+    - name: Install Dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y bc bison build-essential curl flex g++-multilib gcc-multilib git gnupg gperf imagemagick lib32ncurses5-dev lib32z1-dev libc6-dev-i386 libgl1-mesa-dev liblz4-tool libncurses5 libncurses5-dev libsdl1.2-dev libssl-dev libxml2 libxml2-utils lzop pngcrush rsync schedtool squashfs-tools xsltproc zip zlib1g-dev ccache openjdk-11-jdk
+        sudo apt-get install -y bc bison build-essential curl flex g++-multilib gcc-multilib git gnupg gperf imagemagick lib32ncurses5-dev lib32z1-dev libc6-dev-i386 libgl1-mesa-dev liblz4-tool libncurses5 libncurses5-dev libsdl1.2-dev libssl-dev libxml2 libxml2-utils lzop pngcrush rsync schedtool squashfs-tools xsltproc zip zlib1g-dev ccache
 
     - name: Setup Repo tool
       run: |
@@ -31,20 +41,23 @@ jobs:
       run: |
         repo sync -c -j$(nproc --all) --force-sync
 
-    - name: Clone device tree
+    - name: Clone Device Tree
       run: |
         git clone https://github.com/crazo7924/device_samsung_a30 device/samsung/a30
 
-    - name: Clone kernel tree
+    - name: Clone Kernel Tree
       run: |
         git clone https://github.com/EurekaDevelopment/Eureka-Kernel-Exynos7885 kernel/samsung/a30
 
-    - name: Clone vendor blobs
+    - name: Clone Vendor Blobs
       run: |
         git clone https://github.com/LineageOS/android_vendor_samsung_a30 vendor/samsung/a30
 
-    - name: Setup build environment
+    - name: Prepare Build Environment
       run: |
+        export USE_CCACHE=1
+        export CCACHE_EXEC=$(which ccache)
+        ccache -M 10G
         source build/envsetup.sh
         lunch lineage_a30-userdebug
 
@@ -52,7 +65,7 @@ jobs:
       run: |
         mka bacon -j$(nproc --all)
 
-    - name: Upload built ROM
+    - name: Upload Build Artifacts
       uses: actions/upload-artifact@v3
       with:
         name: LineageOS-a30
