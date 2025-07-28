@@ -8,13 +8,15 @@ jobs:
     runs-on: ubuntu-22.04
 
     steps:
-      - name: Checkout Eureka Kernel source
+      # 1. Eureka Kernel source checkout
+      - name: Checkout Eureka Kernel
         uses: actions/checkout@v4
         with:
           repository: EurekaDevelopment/Eureka-Kernel-Exynos7885
           token: ${{ secrets.GITHUB_TOKEN }}
           path: kernel
 
+      # 2. KernelSU Next source checkout
       - name: Checkout KernelSU Next
         uses: actions/checkout@v4
         with:
@@ -22,13 +24,15 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           path: kernelsu
 
+      # 3. Dependencies install
       - name: Install dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y bc bison build-essential curl flex git gnupg gperf imagemagick \
-          lib32ncurses5-dev lib32z1-dev libc6-dev-i386 libgl1-mesa-dev liblz4-tool libncurses5-dev \
-          libssl-dev lzop pngcrush rsync schedtool squashfs-tools xsltproc zip zlib1g-dev ccache wget
+            lib32ncurses5-dev lib32z1-dev libc6-dev-i386 libgl1-mesa-dev liblz4-tool libncurses5-dev \
+            libssl-dev lzop pngcrush rsync schedtool squashfs-tools xsltproc zip zlib1g-dev ccache wget
 
+      # 4. Download Clang toolchain
       - name: Download Clang toolchain
         run: |
           mkdir clang
@@ -37,13 +41,16 @@ jobs:
           tar -xf clang-r416183b.tar.gz
           cd ..
 
+      # 5. Apply KernelSU Next patches
       - name: Apply KernelSU Next patches
         run: |
           cd kernel
-          # burada kernelsu içindəki patchları tətbiq et
-          # məsələn: git apply ../kernelsu/patches/*.patch
-          # patchların dəqiq yeri kernelsu reposundan asılıdır
+          # Patchları KernelSU-next reposundakı patch qovluğundan götür və tətbiq et
+          for patch in ../kernelsu/patches/*.patch; do
+            git apply "$patch" || (echo "Patch $patch failed!" && exit 1)
+          done
 
+      # 6. Setup build environment and build kernel
       - name: Build kernel
         run: |
           cd kernel
@@ -56,8 +63,9 @@ jobs:
           make O=out a30_defconfig
           make -j$(nproc --all) O=out CC=clang CROSS_COMPILE=aarch64-linux-android- CROSS_COMPILE_ARM32=arm-linux-androideabi-
 
+      # 7. Upload built kernel image
       - name: Upload kernel image
         uses: actions/upload-artifact@v4
         with:
-          name: a30-kernel-kernelsu
+          name: a30-kernelsu-kernel
           path: kernel/out/arch/arm64/boot/Image.gz-dtb
