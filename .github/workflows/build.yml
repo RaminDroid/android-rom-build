@@ -1,4 +1,4 @@
-name: Build PixelExperience for Galaxy A30
+name: Build NusantaraOS for A30
 
 on:
   workflow_dispatch:
@@ -6,61 +6,41 @@ on:
 jobs:
   build:
     runs-on: ubuntu-22.04
-    env:
-      USE_CCACHE: 1
-      CCACHE_DIR: ${{ github.workspace }}/.ccache
-
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+    - name: Checkout
+      uses: actions/checkout@v3
 
-      - name: Free up space
-        run: |
-          echo "Cleaning unnecessary files to free up disk space..."
-          sudo rm -rf /usr/share/dotnet
-          sudo rm -rf /opt/ghc
-          sudo rm -rf /usr/local/lib/android
-          sudo apt-get autoremove -y
-          sudo apt-get clean
-          df -h
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y bc bison build-essential curl flex g++-multilib gcc-multilib git gnupg gperf imagemagick lib32ncurses5-dev lib32z1-dev libc6-dev-i386 libgl1-mesa-dev liblz4-tool libncurses5 libncurses5-dev libsdl1.2-dev libssl-dev libxml2 libxml2-utils lzop pngcrush rsync schedtool squashfs-tools xsltproc zip zlib1g-dev ccache
 
-      - name: Install Dependencies
-        run: |
-          sudo apt update
-          sudo apt install -y bc bison build-essential curl flex g++-multilib gcc-multilib \
-            git gnupg gperf imagemagick lib32ncurses5-dev lib32readline-dev lib32z1-dev \
-            liblz4-tool libncurses5-dev libsdl1.2-dev libssl-dev libxml2 libxml2-utils \
-            lzop openjdk-11-jdk pngcrush rsync schedtool squashfs-tools xsltproc zip zlib1g-dev
+    - name: Setup repo tool
+      run: |
+        mkdir -p ~/bin
+        curl https://storage.googleapis.com/git-repo-downloads/repo > ~/bin/repo
+        chmod a+x ~/bin/repo
+        echo "$HOME/bin" >> $GITHUB_PATH
 
-      - name: Setup Repo Tool
-        run: |
-          curl https://storage.googleapis.com/git-repo-downloads/repo > repo
-          chmod a+x repo
-          sudo mv repo /usr/local/bin/
+    - name: Sync ROM source
+      run: |
+        repo init -u https://github.com/NusantaraOS/manifest.git -b lineage-20
+        repo sync --force-sync --no-clone-bundle --no-tags -j$(nproc --all)
 
-      - name: Initialize PixelExperience Source
-        run: |
-          mkdir -p ~/android/pe
-          cd ~/android/pe
-          repo init -u https://github.com/PixelExperience/manifest.git -b thirteen
-          repo sync --force-sync --no-clone-bundle --no-tags -j$(nproc)
+    - name: Clone device, kernel, vendor trees
+      run: |
+        git clone https://github.com/crazo7924/device_samsung_a30 device/samsung/a30lte
+        git clone https://github.com/EurekaDevelopment/Eureka-Kernel-Exynos7885 kernel/samsung/exynos7904
+        git clone <vendor_repo_link> vendor/samsung/a30lte
 
-      - name: Clone Device Trees
-        run: |
-          cd ~/android/pe
-          git clone https://github.com/LineageOS/android_device_samsung_a30.git device/samsung/a30
-          git clone https://github.com/LineageOS/android_kernel_samsung_exynos7904.git kernel/samsung/exynos7904
-          git clone https://github.com/TheMuppets/proprietary_vendor_samsung.git vendor/samsung
+    - name: Build ROM
+      run: |
+        source build/envsetup.sh
+        lunch a30lte-userdebug
+        mka bacon -j$(nproc --all)
 
-      - name: Build ROM
-        run: |
-          cd ~/android/pe
-          source build/envsetup.sh
-          lunch aosp_a30-userdebug
-          mka bacon -j$(nproc)
-
-      - name: Upload Build Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: PixelExperience-A30
-          path: ~/android/pe/out/target/product/a30/*.zip
+    - name: Upload artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: NusantaraOS-A30
+        path: out/target/product/a30lte/*.zip
