@@ -1,5 +1,5 @@
 
-name: Galaxy A30 Android ROM Build
+name: Android ROM Build
 
 on:
   workflow_dispatch:
