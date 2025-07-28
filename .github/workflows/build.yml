@@ -13,7 +13,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v3.1.1
 
       - name: Install dependencies
         run: |
@@ -54,7 +54,7 @@ jobs:
         run: mka bacon -j$(nproc --all)
 
       - name: Upload build artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v3.1.1
         with:
           name: lineageos-a30-zip
           path: out/target/product/a30/*.zip
