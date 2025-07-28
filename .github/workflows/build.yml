@@ -1,61 +1,9 @@
 
-name: Android ROM Build
-
-on:
-  workflow_dispatch:
-
-jobs:
-  build:
-    runs-on: ubuntu-22.04
-    env:
-      JAVA_HOME: /usr/lib/jvm/java-11-openjdk-amd64
-      USE_CCACHE: 1
-      CCACHE_DIR: ${{ github.workspace }}/.ccache
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v3
-
-      - name: Install dependencies
-        run: |
-          sudo apt update
-          sudo apt install -y git-core gnupg flex bison build-essential zip curl zlib1g-dev gcc-multilib \
-            g++-multilib libc6-dev-i386 lib32ncurses5-dev x11proto-core-dev libx11-dev lib32z-dev ccache \
-            libgl1-mesa-dev libxml2-utils xsltproc unzip fontconfig openjdk-11-jdk
-
-      - name: Setup repo tool
-        run: |
-          curl https://storage.googleapis.com/git-repo-downloads/repo > repo
-          chmod a+x repo
-          sudo mv repo /usr/local/bin/
-
-      - name: Initialize LineageOS source
-        run: |
-          mkdir -p ~/android/lineage
-          cd ~/android/lineage
-          repo init -u https://github.com/LineageOS/android.git -b lineage-20.0
-          repo sync -c -j$(nproc) --force-sync
-
-      - name: Clone device tree, kernel, vendor
-        run: |
-          cd ~/android/lineage
-          git clone https://github.com/LineageOS/android_device_samsung_a30.git device/samsung/a30
-          git clone https://github.com/LineageOS/android_kernel_samsung_exynos7904.git kernel/samsung/exynos7904
-          git clone https://github.com/LineageOS/android_vendor_samsung_a30.git vendor/samsung/a30
-
-      - name: Setup build environment and lunch
-        run: |
-          cd ~/android/lineage
-          source build/envsetup.sh
-          lunch lineage_a30-userdebug
-
-      - name: Build ROM
-        run: |
-          cd ~/android/lineage
-          mka bacon -j$(nproc)
-
-      - name: Upload build artifacts
-        uses: actions/upload-artifact@v3
-        with:
-          name: lineageos-a30-build
-          path: ~/android/lineage/out/target/product/a30/*.zip
+- name: Free up space
+  run: |
+    echo "Cleaning up space..."
+    sudo rm -rf /usr/share/dotnet
+    sudo rm -rf /opt/ghc
+    sudo rm -rf /usr/local/lib/android
+    sudo apt-get clean
+    df -h
