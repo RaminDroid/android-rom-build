@@ -14,6 +14,16 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Free up space
+        run: |
+          echo "Cleaning unnecessary files to free up disk space..."
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /opt/ghc
+          sudo rm -rf /usr/local/lib/android
+          sudo apt-get autoremove -y
+          sudo apt-get clean
+          df -h
+
       - name: Install Dependencies
         run: |
           sudo apt update
@@ -52,5 +62,5 @@ jobs:
       - name: Upload Build Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: pixel-experience-a30
+          name: PixelExperience-A30
           path: ~/android/pe/out/target/product/a30/*.zip
