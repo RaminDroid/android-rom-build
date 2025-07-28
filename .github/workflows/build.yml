@@ -1,5 +1,5 @@
 
-name: Build NusantaraOS for A30
+name: Build ROM with Trees
 
 on:
   workflow_dispatch:
@@ -7,41 +7,54 @@ on:
 jobs:
   build:
     runs-on: ubuntu-22.04
+
     steps:
-    - name: Checkout
+    - name: Checkout main repo
       uses: actions/checkout@v3
 
     - name: Install dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y bc bison build-essential curl flex g++-multilib gcc-multilib git gnupg gperf imagemagick lib32ncurses5-dev lib32z1-dev libc6-dev-i386 libgl1-mesa-dev liblz4-tool libncurses5 libncurses5-dev libsdl1.2-dev libssl-dev libxml2 libxml2-utils lzop pngcrush rsync schedtool squashfs-tools xsltproc zip zlib1g-dev ccache
+        sudo apt-get install -y bc bison build-essential curl flex g++-multilib gcc-multilib git gnupg gperf imagemagick lib32ncurses5-dev lib32z1-dev libc6-dev-i386 libgl1-mesa-dev liblz4-tool libncurses5 libncurses5-dev libsdl1.2-dev libssl-dev libxml2 libxml2-utils lzop pngcrush rsync schedtool squashfs-tools xsltproc zip zlib1g-dev ccache openjdk-11-jdk
 
-    - name: Setup repo tool
+    - name: Setup Repo tool
       run: |
         mkdir -p ~/bin
         curl https://storage.googleapis.com/git-repo-downloads/repo > ~/bin/repo
-        chmod a+x ~/bin/repo
+        chmod +x ~/bin/repo
         echo "$HOME/bin" >> $GITHUB_PATH
 
-    - name: Sync ROM source
+    - name: Initialize Repo
       run: |
-        repo init -u https://github.com/NusantaraOS/manifest.git -b lineage-20
-        repo sync --force-sync --no-clone-bundle --no-tags -j$(nproc --all)
+        repo init -u https://github.com/LineageOS/android.git -b lineage-20.0
 
-    - name: Clone device, kernel, vendor trees
+    - name: Sync Repo
       run: |
-        git clone https://github.com/crazo7924/device_samsung_a30 device/samsung/a30lte
-        git clone https://github.com/EurekaDevelopment/Eureka-Kernel-Exynos7885 kernel/samsung/exynos7904
-        git clone <vendor_repo_link> vendor/samsung/a30lte
+        repo sync -c -j$(nproc --all) --force-sync
+
+    - name: Clone device tree
+      run: |
+        git clone https://github.com/crazo7924/device_samsung_a30 device/samsung/a30
+
+    - name: Clone kernel tree
+      run: |
+        git clone https://github.com/EurekaDevelopment/Eureka-Kernel-Exynos7885 kernel/samsung/a30
+
+    - name: Clone vendor blobs
+      run: |
+        git clone https://github.com/LineageOS/android_vendor_samsung_a30 vendor/samsung/a30
+
+    - name: Setup build environment
+      run: |
+        source build/envsetup.sh
+        lunch lineage_a30-userdebug
 
     - name: Build ROM
       run: |
-        source build/envsetup.sh
-        lunch a30lte-userdebug
         mka bacon -j$(nproc --all)
 
-    - name: Upload artifact
+    - name: Upload built ROM
       uses: actions/upload-artifact@v3
       with:
-        name: NusantaraOS-A30
-        path: out/target/product/a30lte/*.zip
+        name: LineageOS-a30
+        path: out/target/product/a30/*.zip
