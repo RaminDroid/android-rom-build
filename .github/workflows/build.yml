@@ -1,42 +1,43 @@
-name: OrangeFox Recovery Build
+name: Build TWRP Recovery for Galaxy A30 with Custom Version
 
 on:
-  workflow_dispatch:
+  push:
+    branches:
+      - main
 
 jobs:
-  build:
+  build-twrp:
     runs-on: ubuntu-latest
-    container: ubuntu:20.04
 
     steps:
-    - name: 🧽 Prepare environment
-      run: |
-        apt update && apt install -y \
-        git wget curl unzip bc bison build-essential \
-        ccache curl flex g++-multilib gcc-multilib \
-        gnupg gperf imagemagick lib32ncurses5-dev \
-        lib32readline-dev lib32z1-dev liblz4-tool \
-        libncurses5-dev libsdl1.2-dev libssl-dev \
-        libxml2 libxml2-utils lzop openjdk-8-jdk \
-        pngcrush rsync schedtool squashfs-tools \
-        xsltproc zip zlib1g-dev
+      - name: Checkout repo
+        uses: actions/checkout@v3
 
-    - name: 🧬 Clone OrangeFox source
-      run: |
-        mkdir -p ~/orangefox && cd ~/orangefox
-        repo init -u https://gitlab.com/OrangeFox/sync.git -b fox_11.0
-        git clone https://github.com/RaminDroid/local_manifest.git .repo/local_manifests
-        repo sync -j$(nproc --all)
+      - name: Install dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y bc bison build-essential curl flex git libssl-dev libncurses5-dev unzip zip repo
 
-    - name: 🔨 Build Recovery
-      run: |
-        cd ~/orangefox
-        . build/envsetup.sh
-        lunch omni_a30-eng
-        mka recoveryimage
+      - name: Initialize repo manifest
+        run: |
+          repo init -u https://github.com/minimal-manifest-twrp/platform_manifest_twrp_aosp.git -b twrp-12.1
+          repo sync -j4
 
-    - name: 📤 Upload recovery
-      uses: actions/upload-artifact@v3
-      with:
-        name: OrangeFox-A30
-        path: ~/orangefox/out/target/product/a30/recovery.img
+      - name: Set custom TWRP version
+        run: |
+          sed -i 's/^TW_DEVICE_VERSION :=.*$/TW_DEVICE_VERSION := 3.7.0-12.1Orbit/' device/samsung/a30/BoardConfig.mk || echo 'TW_DEVICE_VERSION := 3.7.0-12.1Orbit' >> device/samsung/a30/BoardConfig.mk
+
+      - name: Setup build environment
+        run: |
+          . build/envsetup.sh
+          lunch twrp_a30-eng
+
+      - name: Build recovery image
+        run: |
+          make recoveryimage -j$(nproc)
+
+      - name: Upload recovery image artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: twrp_recovery_image
+          path: out/target/product/a30/recovery.img
